@@ -10,8 +10,10 @@ public interface OrderService {
     public List<Order> getAllOrders();
 
     public List<Book> getBooksByCategory(String category);
+    public List<Book> getBooksByAuthorName(String authorName);
 
-    public String placeOrder(String category,int bookId,int quantity);
+    public String placeOrderByCategory(String category,int bookId,int quantity);
+    public String placeOrderByAuthorName(String authorName,int bookId,int quantity);
 
 
 }

@@ -23,9 +23,20 @@ public class OrderController {
         return orderService.getBooksByCategory(category);
     }
 
-    @PostMapping("/placeOrder/{category}")
+    @GetMapping("/bookSearch/authorName/{authorName}")
+    public List<Book> getBooksByAuthorName(@PathVariable String authorName){
+        return orderService.getBooksByAuthorName(authorName);
+    }
+
+    @PostMapping("/placeOrder/category/{category}")
     public ResponseEntity<String> placeOrder(@PathVariable String category,@RequestParam int bookId,@RequestParam int quantity){
-        String res = orderService.placeOrder(category,bookId,quantity);
+        String res = orderService.placeOrderByCategory(category,bookId,quantity);
+        return ResponseEntity.ok(res);
+    }
+
+    @PostMapping("/placeOrder/authorName/{authorName}")
+    public ResponseEntity<String> placeOrderByAuthorName(@PathVariable String authorName,@RequestParam int bookId,@RequestParam int quantity){
+        String res = orderService.placeOrderByAuthorName(authorName,bookId,quantity);
         return ResponseEntity.ok(res);
     }
 

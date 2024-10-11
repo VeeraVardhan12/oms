@@ -32,11 +32,9 @@ public class OrderServiceImpl implements OrderService{
     @Autowired
     private RestTemplate restTemplate;
 
-    private Logger logger = LoggerFactory.getLogger(OrderServiceImpl.class);
+//    private Logger logger = LoggerFactory.getLogger(OrderServiceImpl.class);
 
-    private final String lmsUri = "http://localhost:8080/api/books?bookId=";
-
-    private final String lmsCategoryBooksUri = "http://localhost:8080/api/books/category/";
+    private final String lmsBaseUri = "http://localhost:8080/api/books";
 
     // Create a parameterized type reference to handle the response
     ParameterizedTypeReference<List<Book>> typeRef = new ParameterizedTypeReference<>() {};
@@ -47,24 +45,35 @@ public class OrderServiceImpl implements OrderService{
 
     public List<Book> getBooksByCategory(String category){
         ResponseEntity<List<Book>> booksByCategory = restTemplate.exchange(
-                lmsCategoryBooksUri+category,
+                lmsBaseUri+"?category="+category,
                 HttpMethod.GET,
                 null,
                 typeRef
         );
         List<Book> booksFound = booksByCategory.getBody();
-        logger.info("{}",booksFound);
+//        logger.info("{}",booksFound);
+        return booksFound;
+    }
+    public List<Book> getBooksByAuthorName(String authorName){
+        ResponseEntity<List<Book>> booksByAuthorName = restTemplate.exchange(
+                lmsBaseUri+"?authorName="+authorName,
+                HttpMethod.GET,
+                null,
+                typeRef
+        );
+        List<Book> booksFound = booksByAuthorName.getBody();
+//        logger.info("{}",booksFound);
         return booksFound;
     }
 
-    public String placeOrder(String category, int bookId, int quantity) {
+    public String placeOrderByCategory(String category, int bookId, int quantity) {
         try {
             // Make the GET request and retrieve the response entity
             List<Book> categoryBooks = getBooksByCategory(category);
 
             // Get books by ID
             ResponseEntity<List<Book>> responseEntity = restTemplate.exchange(
-                    lmsUri + bookId + "&category=" + category,
+                    lmsBaseUri + "?bookId="+bookId + "&category=" + category,
                     HttpMethod.GET,
                     null,
                     typeRef
@@ -96,7 +105,7 @@ public class OrderServiceImpl implements OrderService{
 
             // Update the book quantity by making a PUT request to the LMS service
             QuantityRequest quantityRequest = new QuantityRequest(book.getQuantity() - quantity);
-            restTemplate.put(lmsUri + bookId, quantityRequest);
+            restTemplate.put(lmsBaseUri+"?bookId="+bookId, quantityRequest);
 
             return "Order placed successfully for book ID: " + bookId;
 
@@ -105,8 +114,62 @@ public class OrderServiceImpl implements OrderService{
             return "Book not found with ID: " + bookId + " in category: " + category;
         } catch (RestClientException e) {
             // Handle other errors like 500, bad request, etc.
-            logger.error("Error while placing order: {}", e.getMessage());
+//            logger.error("Error while placing order: {}", e.getMessage());
             return "An error occurred while placing the order. Please try again later.";
         }
     }
+
+    public String placeOrderByAuthorName(String authorName, int bookId, int quantity) {
+        try {
+
+            // Get books by ID and authorName
+            ResponseEntity<List<Book>> responseEntity = restTemplate.exchange(
+                    lmsBaseUri + "?bookId="+bookId + "&authorName=" + authorName,
+                    HttpMethod.GET,
+                    null,
+                    typeRef
+            );
+
+            // Retrieve the list of books from the response
+            List<Book> books = responseEntity.getBody();
+
+            // Check if the books list is null or empty
+            if (books == null || books.isEmpty()) {
+                return "Book not found with ID: " + bookId;
+            }
+
+            // Get the first book object
+            Book book = books.get(0);
+
+            // Check if the book is null or if there isn't enough quantity
+            if (book == null || book.getQuantity() < quantity) {
+                return "Book unavailable or insufficient stock";
+            }
+
+            // Create a new order and set its details
+            Order order = new Order();
+            order.setBookId(bookId);
+            order.setQuantity(quantity);
+            order.setTotalPrice(book.getPrice() * quantity);
+            order.setOrderDate(new Date());
+            orderRepo.save(order);  // Save order in the database
+
+            // Update the book quantity by making a PUT request to the LMS service
+            QuantityRequest quantityRequest = new QuantityRequest(book.getQuantity() - quantity);
+            restTemplate.put(lmsBaseUri+"?bookId="+bookId, quantityRequest);
+
+            return "Order placed successfully for book ID: " + bookId;
+
+        } catch (HttpClientErrorException.NotFound e) {
+            // Handle 404 error specifically
+            return "Book not found with ID: " + bookId + " with Author: " + authorName;
+        } catch (RestClientException e) {
+            // Handle other errors like 500, bad request, etc.
+//            logger.error("Error while placing order: {}", e.getMessage());
+            return "An error occurred while placing the order. Please try again later.";
+        }
+    }
+
+
+
 }
